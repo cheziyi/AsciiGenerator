@@ -13,9 +13,10 @@ namespace AsciiGenerator
     {
         static void Main(string[] args)
         {
-            if (args.Length != 4)
+            if (args.Length < 3)
             {
-                Console.WriteLine($"Usage: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} <path/to/image> <width> <height> <font>");
+                Console.WriteLine($"Usage: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} <path/to/image> <width> <height> <body-style (optional)>");
+                Console.WriteLine($"Example: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} C:\\image.jpg 100 50 background-color:#000000;font-family:monospace;font-weight:bold;");
                 return;
             }
 
@@ -25,8 +26,8 @@ namespace AsciiGenerator
             var location = new FileInfo(args[0]).FullName;
             var imageBitmap = new Bitmap(location);
 
-            var xInterval = imageBitmap.Width / width;
-            var yInterval = imageBitmap.Height / height;
+            var xInterval = (double)imageBitmap.Width / (double)width;
+            var yInterval = (double)imageBitmap.Height / (double)height;
 
             var charArray = new ColoredChar[width, height];
 
@@ -38,12 +39,12 @@ namespace AsciiGenerator
                     var gArr = new List<int>();
                     var bArr = new List<int>();
 
-                    for (var i = 0; i < xInterval; i++)
+                    for (var i = 0; i < (int)xInterval; i++)
                     {
-                        for (var j = 0; j < yInterval; j++)
+                        for (var j = 0; j < (int)yInterval; j++)
                         {
-                            var curX = x * xInterval + i;
-                            var curY = y * yInterval + j;
+                            var curX = (int)(x * xInterval) + i;
+                            var curY = (int)(y * yInterval) + j;
                             var pixelColor = imageBitmap.GetPixel(curX, curY);
                             rArr.Add(pixelColor.R);
                             gArr.Add(pixelColor.G);
@@ -55,7 +56,11 @@ namespace AsciiGenerator
                 }
             }
 
-            var sb = new StringBuilder($"<html><body><font face=\"{args[3]}\">");
+            var style = "background-color:#000000;font-family:monospace;font-weight:bold;";
+            if (args.Length > 3)
+                style = args[3];
+
+            var sb = new StringBuilder($"<html><body style=\"{style}\">");
 
             for (var y = 0; y < height; y++)
             {
@@ -72,7 +77,7 @@ namespace AsciiGenerator
                 sb.Append("<br />");
             }
 
-            sb.Append("</font></body></html>");
+            sb.Append("</body></html>");
 
             var htmlLoc = Path.Combine(Path.GetDirectoryName(location), Path.GetFileNameWithoutExtension(location) + ".html");
             File.WriteAllText(htmlLoc, sb.ToString());
