@@ -16,7 +16,9 @@ namespace AsciiGenerator
             if (args.Length < 3)
             {
                 Console.WriteLine($"Usage: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} <path/to/image> <width> <height> <body-style (optional)>");
-                Console.WriteLine($"Example: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} C:\\image.jpg 100 50 background-color:#000000;font-family:monospace;font-weight:bold;");
+                Console.WriteLine($"Example: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} C:\\image.jpg 100 50");
+                Console.WriteLine($"Example: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} /home/user/image.jpg 100 50 font-family:Consolas;");
+                Console.WriteLine($"Default Body Style: background-color:#000000;font-family:monospace;font-weight:bold;");
                 return;
             }
 
