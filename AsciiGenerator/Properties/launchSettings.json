@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "AsciiGenerator": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\calvin\\Desktop\\tStFlXw.png 2560 1440 10 Consolas H"
+    }
+  }
+}

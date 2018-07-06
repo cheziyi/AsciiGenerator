@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -13,99 +14,140 @@ namespace AsciiGenerator
     {
         static void Main(string[] args)
         {
-            if (args.Length < 3)
+            if (args.Length < 6)
             {
-                Console.WriteLine($"Usage: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} <path/to/image> <width> <height> <body-style (optional)>");
-                Console.WriteLine($"Example: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} C:\\image.jpg 100 50");
-                Console.WriteLine($"Example: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} /home/user/image.jpg 100 50 font-family:Consolas;");
-                Console.WriteLine($"Default Body Style: background-color:#000000;font-family:monospace;font-weight:bold;");
+                Console.WriteLine($"Usage: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} <path/to/image> <image-width> <image-height> <text-size> <font> <A (Ascii)/ H (Hex) / B (Binary)>");
+                Console.WriteLine($"Example: {Path.GetFileName(Assembly.GetEntryAssembly().Location)} C:\\image.jpg 1920 1080 10 Consolas B");
                 return;
             }
-
-            var width = Convert.ToInt32(args[1]);
-            var height = Convert.ToInt32(args[2]);
 
             var location = new FileInfo(args[0]).FullName;
             var imageBitmap = new Bitmap(location);
 
-            var xInterval = (double)imageBitmap.Width / (double)width;
-            var yInterval = (double)imageBitmap.Height / (double)height;
+            var imageSize = new Size(Convert.ToInt32(args[1]), Convert.ToInt32(args[2]));
+            var textSize = Convert.ToInt32(args[3]);
+            var gridSize = new Size(imageSize.Width / textSize, imageSize.Height / textSize);
 
-            var charArray = new ColoredChar[width, height];
+            var font = args[4];
 
-            for (var x = 0; x < width; x++)
+            var backColor = Color.Black;
+            var charType = args[5];
+
+            var newImage = new Bitmap(gridSize.Width, gridSize.Height);
+            using (var g = Graphics.FromImage(newImage))
             {
-                for (var y = 0; y < height; y++)
-                {
-                    var rArr = new List<int>();
-                    var gArr = new List<int>();
-                    var bArr = new List<int>();
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                g.DrawImage(imageBitmap, 0, 0, gridSize.Width, gridSize.Height);
+            }
 
-                    for (var i = 0; i < (int)xInterval; i++)
+            var finalImage = new Bitmap(imageSize.Width, imageSize.Height);
+            using (var g = Graphics.FromImage(finalImage))
+            {
+                g.Clear(backColor);
+            }
+
+            var charSize = new Size(textSize, textSize);
+            var fontStyle = new Font(font, OptimalFontSize("X", font, charSize), FontStyle.Bold);
+
+            for (var y = 0; y < gridSize.Height; y++)
+            {
+                Console.WriteLine($"Progress: {y+1} / {gridSize.Height}");
+                Console.SetCursorPosition(0, Console.CursorTop - 1);
+
+                for (var x = 0; x < gridSize.Width; x++)
+                {
+                    char rChar;
+                    if (charType == "A")
+                        rChar = GetRandomAsciiChar();
+                    else if (charType == "H")
+                        rChar = GetRandomHexChar();
+                    else if (charType == "B")
+                        rChar = GetRandomBinaryChar();
+                    else
+                        rChar = GetRandomAsciiChar();
+
+                    var charImage = DrawTextImage(rChar.ToString(), fontStyle, newImage.GetPixel(x, y), backColor, charSize);
+
+                    for (var ny = 0; ny < charSize.Height; ny++)
                     {
-                        for (var j = 0; j < (int)yInterval; j++)
+                        for (var nx = 0; nx < charSize.Width; nx++)
                         {
-                            var curX = (int)(x * xInterval) + i;
-                            var curY = (int)(y * yInterval) + j;
-                            var pixelColor = imageBitmap.GetPixel(curX, curY);
-                            rArr.Add(pixelColor.R);
-                            gArr.Add(pixelColor.G);
-                            bArr.Add(pixelColor.B);
+                            finalImage.SetPixel((x * charSize.Width) + nx, (y * charSize.Height) + ny, charImage.GetPixel(nx, ny));
                         }
                     }
-
-                    charArray[x, y] = new ColoredChar(Convert.ToByte(rArr.Average()), Convert.ToByte(gArr.Average()), Convert.ToByte(bArr.Average()));
                 }
             }
 
-            var style = "background-color:#000000;font-family:monospace;font-weight:bold;";
-            if (args.Length > 3)
-                style = args[3];
+            var saveLoc = Path.Combine(Path.GetDirectoryName(location), Path.GetFileNameWithoutExtension(location) + "_new.png");
+            finalImage.Save(saveLoc, ImageFormat.Png);
 
-            var sb = new StringBuilder($"<html><body style=\"{style}\">");
-
-            for (var y = 0; y < height; y++)
-            {
-                for (var x = 0; x < width; x++)
-                {
-                    sb.Append("<font color=\"#");
-                    sb.Append(charArray[x, y].R.ToString("X2"));
-                    sb.Append(charArray[x, y].G.ToString("X2"));
-                    sb.Append(charArray[x, y].B.ToString("X2"));
-                    sb.Append("\">");
-                    sb.Append(HttpUtility.HtmlEncode(charArray[x, y].Character));
-                    sb.Append("</font>");
-                }
-                sb.Append("<br />");
-            }
-
-            sb.Append("</body></html>");
-
-            var htmlLoc = Path.Combine(Path.GetDirectoryName(location), Path.GetFileNameWithoutExtension(location) + ".html");
-            File.WriteAllText(htmlLoc, sb.ToString());
-
-            Console.WriteLine("File saved to " + htmlLoc);
+            Console.WriteLine("File saved to " + saveLoc);
         }
 
-        public class ColoredChar
+        private static Bitmap DrawTextImage(String text, Font font, Color textColor, Color backColor, Size size)
         {
-            public char Character { get; set; }
-            public byte R { get; set; }
-            public byte G { get; set; }
-            public byte B { get; set; }
-
-            public ColoredChar()
+            var retImg = new Bitmap(size.Width, size.Height);
+            using (var drawing = Graphics.FromImage(retImg))
             {
-                var r = new Random();
-                Character = (char)r.Next(0x21, 0x7F);
-            }
+                drawing.Clear(backColor);
 
-            public ColoredChar(byte r, byte g, byte b) : this()
-            {
-                R = r;
-                G = g;
-                B = b;
+                using (var textBrush = new SolidBrush(textColor))
+                {
+                    drawing.DrawString(text, font, textBrush, 0, 0);
+                    drawing.Save();
+                }
             }
+            return retImg;
+        }
+
+        private static float OptimalFontSize(String text, string font, Size size)
+        {
+            float emFloat = 1;
+            float step = 1;
+            while (true)
+            {
+                using (var img = new Bitmap(1, 1))
+                {
+                    using (Graphics drawing = Graphics.FromImage(img))
+                    {
+                        var textSize = drawing.MeasureString(text, new Font(font, emFloat));
+
+                        if (step < 0.1)
+                            break;
+
+                        if (textSize.Height > size.Height || textSize.Width > size.Width)
+                        {
+                            step /= 2;
+                            emFloat -= step;
+                        }
+                        else
+                        {
+                            step *= 2;
+                            emFloat += step;
+                        }
+                    }
+                }
+
+            }
+            return emFloat;
+        }
+
+        private static char GetRandomAsciiChar()
+        {
+            var r = new Random();
+            return (char)r.Next(0x21, 0x7F);
+        }
+
+        private static char GetRandomHexChar()
+        {
+            var r = new Random();
+            return r.Next(16).ToString("X")[0];
+        }
+
+        private static char GetRandomBinaryChar()
+        {
+            var r = new Random();
+            return r.Next(2).ToString()[0];
         }
     }
 }
